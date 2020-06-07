@@ -9,6 +9,9 @@ try:
 except:
     import http.client as httplib
 
+def unixdate(x):
+    return datetime.timestamp(datetime.strptime(x,"%d/%m/%Y"))
+
 def check_internet():
 
     conn = httplib.HTTPConnection("www.google.com", timeout=5)
@@ -25,6 +28,7 @@ def check_internet():
 
 def get_historic_price(query_url,json_path,csv_path):
 
+    #print(query_url)
     stock_id=query_url.split("&period")[0].split("symbol=")[1]
 
     if os.path.exists(csv_path+stock_id+'.csv') and os.stat(csv_path+stock_id+'.csv').st_size != 0:
@@ -76,13 +80,18 @@ def get_historic_price(query_url,json_path,csv_path):
 
 @click.command()
 @click.option('--run', is_flag=True, help='Run or not')
+@click.option('--start_date', help='Start Date : dd/mm/yyyy',default="01/01/1970")
+@click.option('--end_date', help='End Date : dd/mm/yyyy',default="01/01/3000")
+@click.option('--interval',type=click.Choice(["1m","5m","15m","30m","1h","2h","4h","1d","1w"]))
 
-def stocks(run):
+def stocks(run,interval,start_date,end_date):
 
 
     json_path = os.getcwd()+os.sep+".."+os.sep+"historic_data"+os.sep+"json"+os.sep
     csv_path = os.getcwd()+os.sep+".."+os.sep+"historic_data"+os.sep+"csv"+os.sep
 
+    period1 = str(int(unixdate(start_date)))
+    period2 = str(int(unixdate(end_date)))
     if not os.path.isdir(json_path):
 	    os.makedirs(json_path)
     if not os.path.isdir(csv_path):
@@ -100,9 +109,9 @@ def stocks(run):
     query_urls=[]
 
     for ticker in df['Ticker']:
-	    query_urls.append("https://query1.finance.yahoo.com/v8/finance/chart/"+ticker+"?symbol="+ticker+"&period1=0&period2=9999999999&interval=1d&includePrePost=true&events=div%2Csplit")
+	    query_urls.append("https://query1.finance.yahoo.com/v8/finance/chart/"+ticker+"?symbol="+ticker+"&period1="+str(period1)+"&period2="+str(period2)+"&interval="+str(interval)+"&includePrePost=true&events=div%2Csplit")
 
-    with Pool(processes=3) as pool:
+    with Pool(processes=20) as pool:
 	    pool.starmap(get_historic_price, zip(query_urls, itertools.repeat(json_path), itertools.repeat(csv_path)))
 
     print("<|>  Historical data of all stocks saved")
